@@ -60,7 +60,8 @@ let appState = {
     search: '',           // текущий поисковый запрос
     currentPage: 1,       // текущая страница (для пагинации)
 };
-app.use(    cors());
+app.use(cors());
+app.use(express.json());
 app.get('/', (req: any, res: any) => {
     res.send('Hello World!')
 })
@@ -95,58 +96,61 @@ app.get('/items', (req: Request, res: Response<ItemsResponse>) => {
 })
 
 app.patch('/state', (req: Request, res: Response) => {
-    const { currentPage, oldPageOrder, newPageOrder } = req.body;
+    const { oldPageOrder, newPageOrder } = req.body;
 
     // --- Валидация входных данных ---
-    if (
-        typeof currentPage !== 'number' ||
-        currentPage < 1
-    ) {
-        return res.status(400).json({ error: 'Invalid or missing currentPage' });
-    }
-
     if (!Array.isArray(oldPageOrder) || !Array.isArray(newPageOrder)) {
         return res.status(400).json({ error: 'oldPageOrder and newPageOrder must be arrays' });
+    }
+
+    if (oldPageOrder.length === 0) {
+        return res.status(400).json({ error: 'oldPageOrder cannot be empty' });
     }
 
     if (oldPageOrder.length !== newPageOrder.length) {
         return res.status(400).json({ error: 'oldPageOrder and newPageOrder must have the same length' });
     }
 
-    // --- Вычисляем диапазон ---
-    const startIndex = (currentPage - 1) * PAGE_SIZE;
-    const endIndex = startIndex + oldPageOrder.length;
+    // --- Поиск индекса, где oldPageOrder встречается как подмассив в appState.order ---
+    const order = appState.order;
+    let matchIndex = -1;
 
-    // Проверяем, не выходит ли за пределы
-    if (startIndex >= appState.order.length) {
-        return res.status(400).json({ error: 'Page out of range' });
+    for (let i = 0; i <= order.length - oldPageOrder.length; i++) {
+        let found = true;
+        for (let j = 0; j < oldPageOrder.length; j++) {
+            if (order[i + j] !== oldPageOrder[j]) {
+                found = false;
+                break;
+            }
+        }
+        if (found) {
+            matchIndex = i;
+            break;
+        }
     }
 
-    // --- Получаем текущий порядок на сервере ---
-    const currentPageOrder = appState.order.slice(startIndex, endIndex);
-
-    // --- Сравниваем с ожидаемым (oldPageOrder) ---
-    if (!arraysEqual(currentPageOrder, oldPageOrder)) {
+    // --- Если не найдено совпадение ---
+    if (matchIndex === -1) {
         return res.status(409).json({
-            error: 'Conflict: current page order on server does not match client state',
-            expected: currentPageOrder,
+            error: 'Conflict: The provided oldPageOrder was not found in the current state',
+            currentState: order,
             received: oldPageOrder,
         });
     }
 
     // --- Применяем изменения ---
     for (let i = 0; i < newPageOrder.length; i++) {
-        const globalIndex = startIndex + i;
-        // Защита от выхода за пределы (на всякий случай)
-        if (globalIndex < appState.order.length) {
-            appState.order[globalIndex] = newPageOrder[i];
-        }
+        order[matchIndex + i] = newPageOrder[i];
     }
 
     // --- Ответ ---
     res.status(200).json({
         success: true,
-        message: `Order updated for page ${currentPage}`,
+        message: 'Order updated successfully',
+        updatedRange: {
+            start: matchIndex,
+            end: matchIndex + newPageOrder.length - 1,
+        },
     });
 });
 
