@@ -2,6 +2,7 @@ import type { Item, ItemsResponse } from './types'
 import type { Response, Request } from 'express'
 
 const express = require('express')
+const cors = require('cors')
 const app = express()
 const port = 8000
 
@@ -59,7 +60,7 @@ let appState = {
     search: '',           // текущий поисковый запрос
     currentPage: 1,       // текущая страница (для пагинации)
 };
-
+app.use(    cors());
 app.get('/', (req: any, res: any) => {
     res.send('Hello World!')
 })
