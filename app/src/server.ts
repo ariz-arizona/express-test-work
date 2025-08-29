@@ -47,7 +47,7 @@ function getCachedItem(id: number): Item {
 // --- Хранение состояния (на время жизни приложения) ---
 let appState = {
     selectedItems: new Set<number>(),
-    customOrder: [] as number[], // если пуст — значит, порядок по умолчанию
+    order: Array.from({ length: TOTAL_ITEMS }, (_, i) => i + 1),
     itemsCache: new Map<number, Item>(), // Кэш: id → Item
 };
 
@@ -63,49 +63,24 @@ app.get('/items', (req: Request, res: Response<ItemsResponse>) => {
     const limit = PAGE_SIZE;
     const end = offset + limit; // элементы [offset, end)
 
-    let items: Item[] = [];
+    // Формируем список ID в нужном порядке и с фильтром
+    const idsInOrder = search
+        ? appState.order.filter(id => id.toString().includes(search.toLowerCase()))
+        : appState.order;
+    const total = idsInOrder.length;
 
-    if (search) {
-        let foundIndex = 0
-        const searchNormalized = search.toLowerCase();
-        for (let id = 1; id <= TOTAL_ITEMS; id++) {
-            if (id.toString().indexOf(searchNormalized) !== -1) {
-                if (foundIndex >= offset && foundIndex < end) {
-                    items.push(getCachedItem(id))
-                }
-                foundIndex++
-            }
-        }
+    const pageIds = idsInOrder.slice(offset, end);
+    const items = pageIds.map(id => getCachedItem(id));
 
-        return res.json({
-            items,
-            search: search,
-            total: foundIndex,
-            page,
-            pageSize: PAGE_SIZE,
-            hasMore: foundIndex > end
-        });
-    }
-
-
-    if (!search) {
-        const fromIndex = offset;
-        const toIndex = Math.min(end, TOTAL_ITEMS);
-        for (let index = fromIndex; index < toIndex; index++) {
-            const id = index + 1; // ID = index + 1
-            items.push(getCachedItem(id));
-        }
-
-        return res.json({
-            items,
-            total: TOTAL_ITEMS,
-            page,
-            pageSize: PAGE_SIZE,
-            hasMore: end < TOTAL_ITEMS
-        });
-    }
+    return res.json({
+        items,
+        total,
+        page,
+        pageSize: PAGE_SIZE,
+        hasMore: total > end,
+        search: search || undefined,
+    });
 })
-
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`)
 })
