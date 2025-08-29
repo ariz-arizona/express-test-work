@@ -8,6 +8,7 @@ RUN npm install --omit=dev
 
 # Копируем исходники
 COPY . .
+RUN npm run build
 
 # Запускаем Express
 CMD ["node", ".output/server.js"]
