@@ -3,7 +3,6 @@ import '../assets/css/main.css'
 
 import { useInfiniteScroll, debouncedWatch } from '@vueuse/core'
 import { useSortable } from '@vueuse/integrations/useSortable.mjs'
-import type { SortableEvent } from '@vueuse/integrations/useSortable'
 
 import type { TableColumn } from '@nuxt/ui'
 import UCheckbox from '@nuxt/ui/components/Checkbox.vue'
@@ -68,7 +67,7 @@ const loadItems = async (reset = false) => {
     }
 
     const url = `${API_BASE}/items?${params.toString()}`
-    
+
     // Используем $fetch напрямую
     const result = await $fetch<{ items: Item[], total: number, hasMore: boolean }>(url, {
       method: 'GET',
@@ -81,7 +80,6 @@ const loadItems = async (reset = false) => {
       items.value.push(...result.items)
     }
     hasMore.value = result.hasMore
-    page.value++
   } catch (err: any) {
     console.error('Ошибка загрузки данных:', err)
     // Можно обработать err.data, err.status и т.д.
@@ -90,34 +88,19 @@ const loadItems = async (reset = false) => {
   }
 }
 
-onMounted(loadItems)
+onMounted(
+  loadItems
+)
 
-onMounted(() => {
-  useSortable('.sortable-tbody > tr', items, {
-    animation: 150,
-    handle: '.drag-handle', // опционально: если хочешь "ручку" для перетаскивания
-    onEnd: (evt: SortableEvent) => {
-      const { oldIndex, newIndex } = evt
-
-      if (oldIndex === undefined || newIndex === undefined) return
-
-      // Отправляем порядок на сервер
-      $fetch('/state', {
-        method: 'PATCH',
-        body: {
-          currentPage: page.value - 1, // или page.value, смотри по бэку
-          oldPageOrder: oldIndex,
-          newPageOrder: newIndex
-        }
-      }).catch(console.error)
-    }
-  })
+useSortable('.sortable-tbody', items, {
+  animation: 150,
 })
 
 useInfiniteScroll(
   container,
   () => {
     if (hasMore.value && !loading.value) {
+      page.value++
       loadItems()
     }
   },
@@ -142,13 +125,42 @@ debouncedWatch(
   },
   { debounce: 300 }
 )
+
+// Отслеживаем изменения в порядке элементов
+watch(items, async (newItems, oldItems) => {
+  // Проверяем, что массив изменился (не первоначальный рендер)
+  if (oldItems && newItems !== oldItems) {
+    try {
+      await $fetch(`${API_BASE}/state`, {
+        method: 'PATCH',
+        body: {
+          oldPageOrder: oldItems.map(item => item.id), // старый порядок (id)
+          newPageOrder: newItems.map(item => item.id), // новый порядок (id)
+        },
+      })
+      console.log('Порядок элементов сохранён на сервере')
+    } catch (err) {
+      console.error('Ошибка при сохранении порядка:', err)
+      // При необходимости можно откатить изменения
+      // items.value = oldItems
+    }
+  }
+}, { deep: true })
+
 </script>
 <template>
   <div class="p-6 max-w-4xl mx-auto">
     <h1 class="text-2xl font-bold mb-4">Таблица (1 000 000 записей)</h1>
 
-    <!-- Поисковое поле -->
-    <UInput v-model="search" icon="i-heroicons-magnifying-glass" placeholder="Поиск по ID..." class="mb-4" />
+    <div class="grid grid-cols-4 items-center mb-4">
+      <div class="col-span-1 text-sm">
+        Поиск на сервере
+      </div>
+      <div class="col-span-3">
+        <!-- Поисковое поле -->
+        <UInput v-model="search" icon="i-heroicons-magnifying-glass" placeholder="Поиск по ID..." class="w-full" />
+      </div>
+    </div>
 
     <!-- Таблица с виртуальным скроллом -->
     <div ref="container" class="max-h-96 overflow-y-auto border rounded-lg">
