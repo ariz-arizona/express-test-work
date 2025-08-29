@@ -1,0 +1,83 @@
+# Исключаем файлы и папки, связанные с системой контроля версий
+.git
+.gitignore
+
+# Исключаем временные файлы и кэш
+*.log
+*.tmp
+*.swp
+*.sqlite3
+.cache
+.local
+
+# Исключаем зависимости Node.js и Python
+node_modules
+venv
+__pycache__
+*.pyc
+.pycache
+
+# Исключаем скомпилированные файлы
+dist/
+build/
+.output/
+
+# Исключаем локальные конфигурации и переменные окружения
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+
+# Исключаем тестовые файлы и директории
+tests/
+test/
+coverage/
+pytest_cache/
+
+# Исключаем файлы IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Исключаем документацию (если она не нужна в контейнере)
+docs/
+README.md
+LICENSE
+
+# Исключаем медиафайлы (если они хранятся вне контейнера)
+media/
+staticfiles/
+
+# Исключаем специфические файлы для Nuxt и Vue
+.nuxt/
+.nuxt-dev/
+.nuxt-build/
+.nuxt-cache/
+.nuxt-stats/
+.nuxt-debug/
+.nuxt-modules/
+.nuxt-plugins/
+.nuxt-components/
+.nuxt-middleware/
+.nuxt-server/
+.nuxt-client/
+.nuxt-templates/
+.nuxt-utils/
+.nuxt-composables/
+.nuxt-pages/
+.nuxt-layouts/
+.nuxt-app/
+.nuxt-config/
+.nuxt-env/
+.nuxt-runtime/
+.nuxt-build-info.json
+.nuxt-tsconfig.json
+.nuxt-vite.config.ts
+.nuxt-webpack.config.js
+
+# Исключаем файлы, созданные при сборке Django
+db.sqlite3
+migrations/
+static/

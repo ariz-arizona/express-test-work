@@ -1,0 +1,67 @@
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: ${PROJECT_NAME}_app
+    env_file:
+      - .env
+    labels:
+      project_name: ${PROJECT_NAME}
+    networks:
+      - backend_network
+
+
+  front:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    container_name: ${PROJECT_NAME}_front
+    env_file:
+      - .env
+    labels:
+      project_name: ${PROJECT_NAME}
+    networks:
+      - backend_network
+    depends_on:
+      - app
+    restart: always  # Добавляем перезапуск для фронтенда
+
+  nginx:
+    image: nginx:latest
+    container_name: ${PROJECT_NAME}_nginx
+    ports:
+      - "${NGINX_PORT:-80}:80"  # Только Nginx доступен снаружи через порт 80
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+    depends_on:
+      - front
+      - app
+    networks:
+      - backend_network
+    labels:
+      project_name: ${PROJECT_NAME}
+    restart: always  # Добавляем перезапуск для Nginx
+
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: ${PROJECT_NAME}_dozzle
+    ports:
+      - "${DOZZLE_PORT:-8001}:8080"  # Dozzle доступен снаружи через порт 8001
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # Доступ к Docker socket для Dozzle
+    environment:
+        DOZZLE_FILTER: label=project_name=${PROJECT_NAME}
+    read_only: true  # Только для чтения
+    depends_on:
+      - app
+    networks:
+      - backend_network
+    labels:
+      project_name: ${PROJECT_NAME}  # Метка для dozzle
+    restart: always  # Добавляем перезапуск для Dozzle
+
+# Сети
+networks:
+  backend_network:
+    driver: bridge
