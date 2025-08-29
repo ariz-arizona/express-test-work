@@ -13,4 +13,5 @@ interface ItemsResponse {
     search?: string;
     pageSize: number;
     hasMore: boolean
+    selected: number[]
 }

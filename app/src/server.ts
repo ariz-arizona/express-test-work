@@ -44,14 +44,7 @@ function getCachedItem(id: number): Item {
     appState.itemsCache.set(id, item);
     return item;
 }
-// --- Сравнение массивов ---
-function arraysEqual(a: number[], b: number[]): boolean {
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-        if (a[i] !== b[i]) return false;
-    }
-    return true;
-}
+
 // --- Хранение состояния (на время жизни приложения) ---
 let appState = {
     selectedItems: new Set<number>(),
@@ -92,6 +85,7 @@ app.get('/items', (req: Request, res: Response<ItemsResponse>) => {
         pageSize: PAGE_SIZE,
         hasMore: total > end,
         search: search || undefined,
+        selected: Array.from(appState.selectedItems),
     });
 })
 
@@ -153,7 +147,32 @@ app.patch('/state', (req: Request, res: Response) => {
         },
     });
 });
+app.post('/selected', (req: Request, res: Response) => {
+    const { selectedIds } = req.body;
 
+    // --- Валидация ---
+    if (!Array.isArray(selectedIds)) {
+        return res.status(400).json({
+            error: 'selectedIds must be an array of numbers'
+        });
+    }
+
+    // Преобразуем и фильтруем валидные числа
+    const validIds = selectedIds
+        .map(id => Number(id))
+        .filter(id => !isNaN(id) && id >= 1 && id <= TOTAL_ITEMS);
+
+    // --- Обновляем состояние ---
+    appState.selectedItems = new Set(validIds);
+
+    // --- Ответ ---
+    res.status(200).json({
+        success: true,
+        message: 'Selected items updated successfully',
+        count: validIds.length,
+        selectedIds: validIds // можно убрать, если много
+    });
+});
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`)
 })

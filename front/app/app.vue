@@ -15,8 +15,10 @@ const page = ref(1)
 const items = ref<Item[]>([])
 const hasMore = ref(true)
 const loading = ref(false)
+const selectedIds = ref<Set<number>>(new Set())
 
 const container = useTemplateRef('container')
+const rowSelection = ref<Record<number, boolean>>({})
 
 const columns: TableColumn<Item>[] = [
   {
@@ -26,13 +28,30 @@ const columns: TableColumn<Item>[] = [
         modelValue: table.getIsSomePageRowsSelected()
           ? 'indeterminate'
           : table.getIsAllPageRowsSelected(),
-        'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
+        'onUpdate:modelValue': (value: boolean | 'indeterminate') => {
+          table.toggleAllPageRowsSelected(!!value)
+          // Обновляем selectedIds для всех строк на текущей странице
+          const currentPageIds = items.value.map(item => item.id)
+          if (value) {
+            currentPageIds.forEach(id => selectedIds.value.add(id))
+          } else {
+            currentPageIds.forEach(id => selectedIds.value.delete(id))
+          }
+        },
         'aria-label': 'Select all rows'
       }),
     cell: ({ row }) =>
       h(UCheckbox, {
         modelValue: row.getIsSelected(),
-        'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
+        'onUpdate:modelValue': (value: boolean | 'indeterminate') => {
+          row.toggleSelected(!!value)
+          // Обновляем selectedIds
+          if (value) {
+            selectedIds.value.add(row.original.id)
+          } else {
+            selectedIds.value.delete(row.original.id)
+          }
+        },
         'aria-label': 'Select row'
       })
   },
@@ -69,7 +88,7 @@ const loadItems = async (reset = false) => {
     const url = `${API_BASE}/items?${params.toString()}`
 
     // Используем $fetch напрямую
-    const result = await $fetch<{ items: Item[], total: number, hasMore: boolean }>(url, {
+    const result = await $fetch<ItemsResponse>(url, {
       method: 'GET',
       // При необходимости добавь headers и др.
     })
@@ -79,6 +98,18 @@ const loadItems = async (reset = false) => {
     } else {
       items.value.push(...result.items)
     }
+
+    if (reset && result.selected) {
+      selectedIds.value = new Set(result.selected)
+      rowSelection.value = {}
+      for (const id of result.selected) {
+        const index = items.value.findIndex(el => el.id === id)
+        if (index !== -1) {
+          rowSelection.value[index] = true
+        }
+      }
+    }
+
     hasMore.value = result.hasMore
   } catch (err: any) {
     console.error('Ошибка загрузки данных:', err)
@@ -88,8 +119,7 @@ const loadItems = async (reset = false) => {
   }
 }
 
-onMounted(
-  loadItems
+onMounted(() => { loadItems(true) }
 )
 
 useSortable('.sortable-tbody', items, {
@@ -114,18 +144,25 @@ debouncedWatch(
       items.value = []
       page.value = 1
       hasMore.value = true
-      loadItems()
+      loadItems(true)
     } else if (value.length === 0) {
       items.value = []
       page.value = 1
       hasMore.value = true
-      loadItems()
+      loadItems(true)
     }
     // При 1–2 символах — ничего не делаем
   },
   { debounce: 300 }
 )
-
+watch(selectedIds, async () => {
+  await $fetch(`${API_BASE}/selected`, {
+    method: 'POST',
+    body: {
+      selectedIds: Array.from(selectedIds.value)
+    }
+  })
+}, { deep: true })
 // Отслеживаем изменения в порядке элементов
 watch(items, async (newItems, oldItems) => {
   // Проверяем, что массив изменился (не первоначальный рендер)
@@ -161,11 +198,10 @@ watch(items, async (newItems, oldItems) => {
         <UInput v-model="search" icon="i-heroicons-magnifying-glass" placeholder="Поиск по ID..." class="w-full" />
       </div>
     </div>
-
     <!-- Таблица с виртуальным скроллом -->
     <div ref="container" class="max-h-96 overflow-y-auto border rounded-lg">
       <UTable :data="items" :columns="columns" :loading="loading && items.length === 0" class="flex-1"
-        :ui="{ tbody: 'sortable-tbody' }">
+        v-model:row-selection="rowSelection" :ui="{ tbody: 'sortable-tbody' }">
         <!-- Можно кастомизировать ячейки, если нужно -->
       </UTable>
 
