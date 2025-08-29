@@ -110,6 +110,10 @@ const loadItems = async (reset = false) => {
       }
     }
 
+    if (result.search) {
+      search.value = result.search
+    }
+
     hasMore.value = result.hasMore
   } catch (err: any) {
     console.error('Ошибка загрузки данных:', err)
