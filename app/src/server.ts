@@ -113,11 +113,11 @@ app.patch('/state', (req: Request, res: Response) => {
     const order = appState.order;
     let matchIndex = -1;
 
-    for (let i = 0; i <= order.length; i++) {
-        let found = true;
+    for (let i = 0; i <= order.length - oldPageOrder.length; i++) {
+        let found = false;
         for (let j = 0; j < oldPageOrder.length; j++) {
-            if (order[i + j] !== oldPageOrder[j]) {
-                found = false;
+            if (order[i + j] == oldPageOrder[j]) {
+                found = true;
                 break;
             }
         }
