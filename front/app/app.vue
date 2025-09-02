@@ -126,6 +126,13 @@ const loadItems = async (reset = false) => {
 onMounted(() => { loadItems(true) }
 )
 
+const resetSearch = () => {
+  search.value = ''
+  page.value = 1
+  hasMore.value = true
+  loadItems(true)
+}
+
 useSortable('.sortable-tbody', items, {
   animation: 150,
 })
@@ -160,17 +167,19 @@ debouncedWatch(
   { debounce: 300 }
 )
 watch(selectedIds, async () => {
-  await $fetch(`${API_BASE}/selected`, {
-    method: 'POST',
-    body: {
-      selectedIds: Array.from(selectedIds.value)
-    }
-  })
+  if (selectedIds.value) {
+    await $fetch(`${API_BASE}/selected`, {
+      method: 'POST',
+      body: {
+        selectedIds: Array.from(selectedIds.value)
+      }
+    })
+  }
 }, { deep: true })
 // Отслеживаем изменения в порядке элементов
 watch(items, async (newItems, oldItems) => {
   // Проверяем, что массив изменился (не первоначальный рендер)
-  if (oldItems && newItems !== oldItems) {
+  if (oldItems.length && newItems !== oldItems) {
     try {
       await $fetch(`${API_BASE}/state`, {
         method: 'PATCH',
@@ -193,13 +202,16 @@ watch(items, async (newItems, oldItems) => {
   <div class="p-6 max-w-4xl mx-auto">
     <h1 class="text-2xl font-bold mb-4">Таблица (1 000 000 записей)</h1>
 
-    <div class="grid grid-cols-4 items-center mb-4">
-      <div class="col-span-1 text-sm">
-        Поиск на сервере
+    <div class="grid grid-cols-6 items-center mb-4 gap-2">
+      <div class="col-span-2 text-sm">
+        Поиск на сервере (от трех символов)
       </div>
       <div class="col-span-3">
         <!-- Поисковое поле -->
         <UInput v-model="search" icon="i-heroicons-magnifying-glass" placeholder="Поиск по ID..." class="w-full" />
+      </div>
+      <div class="col-span-1">
+        <UButton @click="resetSearch">Сбросить поиск</UButton>
       </div>
     </div>
     <!-- Таблица с виртуальным скроллом -->

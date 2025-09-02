@@ -61,7 +61,7 @@ app.get('/', (req: any, res: any) => {
 
 app.get('/items', (req: Request, res: Response<ItemsResponse>) => {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-    const search = (req.query.search as string) || appState.search || '';
+    const search = (req.query.search as string) || '';
 
     const offset = (page - 1) * PAGE_SIZE;
     const limit = PAGE_SIZE;
