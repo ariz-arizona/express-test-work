@@ -61,13 +61,17 @@ app.get('/', (req: any, res: any) => {
 
 app.get('/items', (req: Request, res: Response<ItemsResponse>) => {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-    const search = (req.query.search as string) || '';
+    let search = (req.query.search as string);
 
     const offset = (page - 1) * PAGE_SIZE;
     const limit = PAGE_SIZE;
     const end = offset + limit; // элементы [offset, end)
 
-    appState.search = search
+    if (Object.keys(req.query).includes('search')) {
+        appState.search = search
+    } else if (appState.search) {
+        search = appState.search
+    }
 
     // Формируем список ID в нужном порядке и с фильтром
     const idsInOrder = search
@@ -109,7 +113,7 @@ app.patch('/state', (req: Request, res: Response) => {
     const order = appState.order;
     let matchIndex = -1;
 
-    for (let i = 0; i <= order.length - oldPageOrder.length; i++) {
+    for (let i = 0; i <= order.length; i++) {
         let found = true;
         for (let j = 0; j < oldPageOrder.length; j++) {
             if (order[i + j] !== oldPageOrder[j]) {

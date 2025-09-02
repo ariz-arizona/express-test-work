@@ -10,7 +10,7 @@ import UCheckbox from '@nuxt/ui/components/Checkbox.vue'
 const config = useRuntimeConfig()
 const API_BASE = config.public.apiBase as string
 
-const search = ref('')
+const search = ref()
 const page = ref(1)
 const items = ref<Item[]>([])
 const hasMore = ref(true)
@@ -81,7 +81,8 @@ const loadItems = async (reset = false) => {
   try {
     const params = new URLSearchParams()
     params.append('page', page.value.toString())
-    if (search.value) {
+
+    if (search.value !== undefined) {
       params.append('search', search.value)
     }
 
