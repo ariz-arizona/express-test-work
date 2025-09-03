@@ -45,16 +45,20 @@ function getCachedItem(id: number): Item {
     return item;
 }
 
+const createBaseOrder = () => Array.from({ length: TOTAL_ITEMS }, (_, i) => i + 1)
 // --- Хранение состояния (на время жизни приложения) ---
-let appState = {
+const createDefaultState = () => ({
     selectedItems: new Set<number>(),
-    order: Array.from({ length: TOTAL_ITEMS }, (_, i) => i + 1),
-    itemsCache: new Map<number, Item>(), // Кэш: id → Item
-    search: '',           // текущий поисковый запрос
-    currentPage: 1,       // текущая страница (для пагинации)
-};
+    order: createBaseOrder(),
+    itemsCache: new Map<number, Item>(),
+    search: '',
+    currentPage: 1,
+});
+let appState = createDefaultState()
+
 app.use(cors());
 app.use(express.json());
+
 app.get('/', (req: any, res: any) => {
     res.send('Hello World!')
 })
@@ -68,26 +72,26 @@ app.get('/items', (req: Request, res: Response<ItemsResponse>) => {
     const end = offset + limit; // элементы [offset, end)
 
     if (Object.keys(req.query).includes('search')) {
+        if (search !== appState.search) appState.order = createBaseOrder()
         appState.search = search
     } else if (appState.search) {
         search = appState.search
     }
 
     // Формируем список ID в нужном порядке и с фильтром
-    const idsInOrder = search
+    appState.order = search
         ? appState.order.filter(id => id.toString().includes(search.toLowerCase()))
         : appState.order;
-    const total = idsInOrder.length;
 
-    const pageIds = idsInOrder.slice(offset, end);
+    const pageIds = appState.order.slice(offset, end);
     const items = pageIds.map(id => getCachedItem(id));
 
     return res.json({
         items,
-        total,
+        total: appState.order.length,
         page,
         pageSize: PAGE_SIZE,
-        hasMore: total > end,
+        hasMore: appState.order.length > end,
         search: search || undefined,
         selected: Array.from(appState.selectedItems),
     });
@@ -109,19 +113,22 @@ app.patch('/state', (req: Request, res: Response) => {
         return res.status(400).json({ error: 'oldPageOrder and newPageOrder must have the same length' });
     }
 
-    // --- Поиск индекса, где oldPageOrder встречается как подмассив в appState.order ---
     const order = appState.order;
+
+    // --- Поиск индекса, где oldPageOrder встречается как подмассив ---
     let matchIndex = -1;
 
     for (let i = 0; i <= order.length - oldPageOrder.length; i++) {
-        let found = false;
+        let isMatch = true;
+
         for (let j = 0; j < oldPageOrder.length; j++) {
-            if (order[i + j] == oldPageOrder[j]) {
-                found = true;
+            if (order[i + j] !== oldPageOrder[j]) {
+                isMatch = false;
                 break;
             }
         }
-        if (found) {
+
+        if (isMatch) {
             matchIndex = i;
             break;
         }
@@ -136,7 +143,7 @@ app.patch('/state', (req: Request, res: Response) => {
         });
     }
 
-    // --- Применяем изменения ---
+    // --- Замена элементов ---
     for (let i = 0; i < newPageOrder.length; i++) {
         order[matchIndex + i] = newPageOrder[i];
     }
@@ -151,6 +158,15 @@ app.patch('/state', (req: Request, res: Response) => {
         },
     });
 });
+
+app.post('/reset', (req: Request, res: Response) => {
+    appState = createDefaultState();
+    res.status(200).json({
+        success: true,
+        message: 'State reset to default.',
+    });
+});
+
 app.post('/selected', (req: Request, res: Response) => {
     const { selectedIds } = req.body;
 

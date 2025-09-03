@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import '../assets/css/main.css'
 
-import { useInfiniteScroll, debouncedWatch } from '@vueuse/core'
+import { useInfiniteScroll, debouncedWatch, watchIgnorable } from '@vueuse/core'
 import { useSortable } from '@vueuse/integrations/useSortable.mjs'
 
 import type { TableColumn } from '@nuxt/ui'
@@ -68,15 +68,35 @@ const columns: TableColumn<Item>[] = [
     header: 'Category'
   }
 ]
+const setSelectedRows = (selected = selectedIds.value) => {
+  rowSelection.value = {}
+  for (const id of selected) {
+    const index = items.value.findIndex(el => el.id === id)
+    if (index !== -1) {
+      rowSelection.value[index] = true
+    }
+  }
+
+}
 // Загрузка данных
-const loadItems = async (reset = false) => {
+const loadItems = async (reset = false, resetState = false) => {
+  if (loading.value) return
+
+  loading.value = true
+
   if (reset) {
     page.value = 1
     hasMore.value = true
   }
-  if (loading.value || !hasMore.value) return
 
-  loading.value = true
+  if (resetState) {
+    await $fetch(`${API_BASE}/reset`, {
+      method: 'POST',
+    })
+    search.value = undefined
+    page.value = 1
+    hasMore.value = true
+  }
 
   try {
     const params = new URLSearchParams()
@@ -100,15 +120,9 @@ const loadItems = async (reset = false) => {
       items.value.push(...result.items)
     }
 
-    if (reset && result.selected) {
+    if (result.selected) {
       selectedIds.value = new Set(result.selected)
-      rowSelection.value = {}
-      for (const id of result.selected) {
-        const index = items.value.findIndex(el => el.id === id)
-        if (index !== -1) {
-          rowSelection.value[index] = true
-        }
-      }
+      setSelectedRows()
     }
 
     if (result.search) {
@@ -124,14 +138,10 @@ const loadItems = async (reset = false) => {
   }
 }
 
-onMounted(() => { loadItems(true) }
-)
+onMounted(() => { loadItems(true) })
 
-const resetSearch = () => {
-  search.value = ''
-  page.value = 1
-  hasMore.value = true
-  loadItems(true)
+const resetSearch = async () => {
+  loadItems(true, true)
 }
 
 useSortable('.sortable-tbody', items, {
@@ -158,15 +168,13 @@ debouncedWatch(
       hasMore.value = true
       loadItems(true)
     } else if (value.length === 0) {
-      items.value = []
-      page.value = 1
-      hasMore.value = true
-      loadItems(true)
+      loadItems(true, true)
     }
     // При 1–2 символах — ничего не делаем
   },
   { debounce: 300 }
 )
+
 watch(selectedIds, async () => {
   if (selectedIds.value) {
     await $fetch(`${API_BASE}/selected`, {
@@ -177,11 +185,14 @@ watch(selectedIds, async () => {
     })
   }
 }, { deep: true })
+
 // Отслеживаем изменения в порядке элементов
 watch(items, async (newItems, oldItems) => {
   // Проверяем, что массив изменился (не первоначальный рендер)
-  if (oldItems.length && newItems !== oldItems) {
+  if (oldItems.length && newItems.length && newItems !== oldItems) {
     try {
+      setSelectedRows()
+
       await $fetch(`${API_BASE}/state`, {
         method: 'PATCH',
         body: {
@@ -207,12 +218,13 @@ watch(items, async (newItems, oldItems) => {
       <div class="col-span-2 text-sm">
         Поиск на сервере (от трех символов)
       </div>
-      <div class="col-span-3">
+      <div class="col-span-2">
         <!-- Поисковое поле -->
-        <UInput v-model="search" icon="i-heroicons-magnifying-glass" placeholder="Поиск по ID..." class="w-full" />
+        <UInput v-model="search" icon="i-heroicons-magnifying-glass" :loading="loading"
+          placeholder="Поиск по ID..." class="w-full" />
       </div>
-      <div class="col-span-1">
-        <UButton @click="resetSearch">Сбросить поиск</UButton>
+      <div class="col-span-2">
+        <UButton :disabled="loading" @click="resetSearch">Сбросить поиск, выбранное и сортировку</UButton>
       </div>
     </div>
     <!-- Таблица с виртуальным скроллом -->
