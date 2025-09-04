@@ -211,21 +211,29 @@ watch(items, async (newItems, oldItems) => {
 
 </script>
 <template>
-  <div class="p-6 max-w-4xl mx-auto">
-    <h1 class="text-2xl font-bold mb-4">Таблица (1 000 000 записей)</h1>
+  <div class="p-6 max-w-4xl mx-auto flex flex-col gap-4">
+    <h1 class="text-2xl font-bold">Таблица (1 000 000 записей)</h1>
 
-    <div class="grid grid-cols-6 items-center mb-4 gap-2">
+    <div class="grid grid-cols-6 items-center gap-2">
       <div class="col-span-2 text-sm">
         Поиск на сервере (от трех символов)
       </div>
       <div class="col-span-2">
         <!-- Поисковое поле -->
-        <UInput v-model="search" icon="i-heroicons-magnifying-glass" :loading="loading"
-          placeholder="Поиск по ID..." class="w-full" />
+        <UInput v-model="search" icon="i-heroicons-magnifying-glass" :loading="loading" placeholder="Поиск по ID..."
+          class="w-full" />
       </div>
       <div class="col-span-2">
         <UButton :disabled="loading" @click="resetSearch">Сбросить поиск, выбранное и сортировку</UButton>
       </div>
+    </div>
+    <div>
+      <p class="text-sm">Данные от сервера:</p>
+      <ul class="text-xs">
+        <li>Поиск: {{ search }}</li>
+        <li>Порядок элементов: {{items.map(el => el.id)}}</li>
+        <li>Выбранные элементы: {{ selectedIds }}</li>
+      </ul>
     </div>
     <!-- Таблица с виртуальным скроллом -->
     <div ref="container" class="max-h-96 overflow-y-auto border rounded-lg">
